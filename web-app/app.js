@@ -279,6 +279,21 @@ function setupEventListeners() {
         }
     });
 
+    // Escuchar cambios en formularios dentro de modales (Dirty Check)
+    document.addEventListener('input', (e) => {
+        const modalForm = e.target.closest('.modal form');
+        if (modalForm) {
+            modalForm.dataset.dirty = 'true';
+        }
+    });
+
+    document.addEventListener('change', (e) => {
+        const modalForm = e.target.closest('.modal form');
+        if (modalForm) {
+            modalForm.dataset.dirty = 'true';
+        }
+    });
+
     // Cerrar modales haciendo click fuera CON CONFIRMACIÓN
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', (e) => {
@@ -290,47 +305,51 @@ function setupEventListeners() {
 }
 
 /**
- * Verifica si un formulario tiene datos significativos
+ * Verifica si un formulario tiene datos editados por el usuario
  */
-function formularioTieneDatos(formElement) {
-    if (!formElement) return false;
-
-    const formData = new FormData(formElement);
-    for (let [key, value] of formData.entries()) {
-        if (value && value.toString().trim() !== '' && !key.startsWith('id_')) {
-            // Ignorar campos de estado por defecto si son 'Activo'
-            if (key === 'estado' && value === 'Activo') continue;
-            // Ignorar campos que solo tienen el valor inicial si es posible
-            // (Para este proyecto, cualquier valor no vacío suele ser entrada del usuario)
-            return true;
-        }
-    }
-    return false;
+function formularioTieneDatos(form) {
+    if (!form) return false;
+    return form.dataset.dirty === 'true';
 }
 
 /**
  * Intenta cerrar un modal pidiendo confirmación si hay datos
+ * @param {string} modalId - El ID del modal a cerrar
+ * @param {boolean} force - Si es true, cierra sin pedir confirmación
  */
-function intentarCerrarModal(modalId) {
+function intentarCerrarModal(modalId, force = false) {
     const modal = document.getElementById(modalId);
     if (!modal || !modal.classList.contains('active')) return;
+
+    // Modales que NUNCA deben pedir confirmación (solo vistas o gestión)
+    const modalesExcluidos = ['modal-cliente', 'modal-gestion-categorias'];
+    if (modalesExcluidos.includes(modalId)) {
+        modal.classList.remove('active');
+        return;
+    }
 
     const form = modal.querySelector('form');
     let hasData = false;
 
-    if (form) {
+    if (form && !force) {
         hasData = formularioTieneDatos(form);
     }
 
-    if (hasData) {
+    if (hasData && !force) {
         if (confirm('¿Deseas abandonar el formulario? Los cambios no guardados se perderán.')) {
             modal.classList.remove('active');
-            if (form) form.reset();
+            if (form) {
+                form.reset();
+                delete form.dataset.dirty;
+            }
         }
     } else {
         modal.classList.remove('active');
         // No resetear aquí si es el modal de cliente (detalle), pero sí si es formulario
-        if (form && !modalId.includes('detalle')) form.reset();
+        if (form && !modalId.includes('detalle')) {
+            form.reset();
+            delete form.dataset.dirty;
+        }
     }
 }
 
@@ -925,7 +944,7 @@ function verDetalleCliente(idCliente) {
 
 // Cerrar modal de detalle de cliente
 function cerrarModalCliente() {
-    intentarCerrarModal('modal-cliente');
+    intentarCerrarModal('modal-cliente', true); // Detalle no necesita confirmación
     appState.currentCliente = null;
 }
 
@@ -934,12 +953,16 @@ function cerrarModalCliente() {
 // ========================================
 
 function mostrarFormularioCliente() {
-    document.getElementById('modal-form-cliente').classList.add('active');
+    const modal = document.getElementById('modal-form-cliente');
+    const form = document.getElementById('form-cliente');
+    modal.classList.add('active');
+    form.reset();
+    delete form.dataset.dirty;
 }
 
 // Cerrar formulario de cliente
-function cerrarFormularioCliente() {
-    intentarCerrarModal('modal-form-cliente');
+function cerrarFormularioCliente(force = false) {
+    intentarCerrarModal('modal-form-cliente', force);
     // Restaurar título original
     document.querySelector('#modal-form-cliente .modal-header h2').innerHTML = '<i class="fas fa-plus"></i> Nuevo Cliente';
 }
@@ -1015,7 +1038,7 @@ async function guardarCliente(event) {
         localStorage.setItem('clientes', JSON.stringify(appState.clientes));
 
         // Actualizar UI INMEDIATAMENTE
-        cerrarFormularioCliente();
+        cerrarFormularioCliente(true);
         refrescarVistaActual(true);
 
         // Guardar en Google Sheets en background
@@ -1072,6 +1095,8 @@ function editarCliente(idCliente) {
 
     // Llenar el formulario con los datos del cliente
     const form = document.getElementById('form-cliente');
+    form.reset();
+    delete form.dataset.dirty;
     form.querySelector('[name="id_cliente"]').value = cliente.ID_Cliente;
     form.querySelector('[name="nombre_cliente"]').value = cliente.Nombre_Cliente || '';
     form.querySelector('[name="fecha_inicio"]').value = cliente.Fecha_Inicio || '';
@@ -1375,18 +1400,20 @@ async function enviarAlScriptCORS(action, data) {
 // ========================================
 
 function mostrarFormularioMarca(idCliente) {
+    const modal = document.getElementById('modal-form-marca');
     const form = document.getElementById('form-marca');
+    modal.classList.add('active');
     form.reset();
+    delete form.dataset.dirty;
     form.querySelector('[name="id_cliente"]').value = idCliente;
     form.querySelector('[name="id_marca"]').value = '';
 
     document.querySelector('#modal-form-marca .modal-header h2').innerHTML = '<i class="fas fa-plus"></i> Nueva Marca';
-    document.getElementById('modal-form-marca').classList.add('active');
 }
 
 // Cerrar formulario de marca
-function cerrarFormularioMarca() {
-    intentarCerrarModal('modal-form-marca');
+function cerrarFormularioMarca(force = false) {
+    intentarCerrarModal('modal-form-marca', force);
 }
 
 async function guardarMarca(event) {
@@ -1462,7 +1489,7 @@ async function guardarMarca(event) {
         localStorage.setItem('marcas', JSON.stringify(appState.marcas));
 
         // Actualizar UI INMEDIATAMENTE
-        cerrarFormularioMarca();
+        cerrarFormularioMarca(true);
         refrescarVistaActual(true);
         if (appState.currentCliente && appState.currentCliente.ID_Cliente == idCliente) {
             verDetalleCliente(idCliente);
@@ -1531,6 +1558,8 @@ function editarMarca(idMarca) {
     }
 
     const form = document.getElementById('form-marca');
+    form.reset();
+    delete form.dataset.dirty;
     form.querySelector('[name="id_marca"]').value = marca.ID_Marca;
     form.querySelector('[name="id_cliente"]').value = marca.ID_Cliente;
     form.querySelector('[name="nombre_marca"]').value = marca.Nombre_Marca || '';
@@ -1633,6 +1662,7 @@ function mostrarFormularioEntregable(idMarca) {
 
     // Limpiar formulario
     form.reset();
+    delete form.dataset.dirty;
     form.querySelector('[name="id_entregable"]').value = '';
     form.querySelector('[name="id_cliente"]').value = marca.ID_Cliente;
     form.querySelector('[name="id_marca"]').value = idMarca;
@@ -1675,8 +1705,8 @@ function mostrarFormularioEntregable(idMarca) {
 }
 
 // Cerrar formulario de entregable
-function cerrarFormularioEntregable() {
-    intentarCerrarModal('modal-form-entregable');
+function cerrarFormularioEntregable(force = false) {
+    intentarCerrarModal('modal-form-entregable', force);
 }
 
 // Cargar clientes en el formulario de entregables
@@ -1942,6 +1972,10 @@ function editarEntregable(idEntregable) {
     const modal = document.getElementById('modal-form-entregable');
     const form = document.getElementById('form-entregable');
 
+    // Limpiar y resetear estado sucio
+    form.reset();
+    delete form.dataset.dirty;
+
     // Cargar opciones dinámicas primero
     cargarClientesEnFormulario();
     cargarTiposEntregable();
@@ -2122,7 +2156,7 @@ async function guardarEntregable(event) {
         localStorage.setItem('entregables', JSON.stringify(appState.entregables));
 
         // Actualizar UI INMEDIATAMENTE
-        cerrarFormularioEntregable();
+        cerrarFormularioEntregable(true);
         refrescarVistaActual(true);
         if (appState.currentCliente && appState.currentCliente.ID_Cliente == idCliente) {
             verDetalleCliente(idCliente);
@@ -2502,13 +2536,16 @@ function renderizarTablaUsers() {
 }
 
 function mostrarFormularioUser() {
-    document.getElementById('modal-form-user').classList.add('active');
-    document.getElementById('form-user').reset();
+    const modal = document.getElementById('modal-form-user');
+    const form = document.getElementById('form-user');
+    modal.classList.add('active');
+    form.reset();
+    delete form.dataset.dirty;
     document.querySelector('#modal-form-user .modal-header h2').innerHTML = '<i class="fas fa-user-plus"></i> Nuevo Usuario';
 }
 
-function cerrarFormularioUser() {
-    intentarCerrarModal('modal-form-user');
+function cerrarFormularioUser(force = false) {
+    intentarCerrarModal('modal-form-user', force);
 }
 
 async function guardarUser(event) {
@@ -2546,7 +2583,7 @@ async function guardarUser(event) {
             appState.users.push(tempUser);
         }
 
-        cerrarFormularioUser();
+        cerrarFormularioUser(true);
         renderizarTablaUsers();
 
         enviarAlScript({
@@ -2595,6 +2632,8 @@ function editarUser(idUser) {
     }
 
     const form = document.getElementById('form-user');
+    form.reset();
+    delete form.dataset.dirty;
     form.querySelector('[name="id_user"]').value = user.ID_User;
     form.querySelector('[name="nombre"]').value = user.Nombre_Usuario || '';
     form.querySelector('[name="email"]').value = user.Email || '';
@@ -2661,7 +2700,7 @@ async function eliminarUser(idUser) {
 // MODAL GENÉRICO
 // ========================================
 
-function mostrarModal(titulo, contenidoHTML) {
+function mostrarModal(titulo, content) {
     // Crear modal si no existe
     let modal = document.getElementById('modal-generico');
 
@@ -2688,13 +2727,18 @@ function mostrarModal(titulo, contenidoHTML) {
         modal.querySelector('.modal-header h2').textContent = titulo;
     }
 
-    modal.querySelector('.modal-body').innerHTML = contenidoHTML;
+    modal.querySelector('.modal-body').innerHTML = content;
     modal.classList.add('active');
+
+    // Resetear el estado de "sucio" del formulario si se carga uno nuevo
+    const form = modal.querySelector('form');
+    if (form) delete form.dataset.dirty;
 }
 
 /**
  * Cierra el modal genérico con confirmación
+ * @param {boolean} force - Si es true, cierra sin pedir confirmación
  */
-function cerrarModal() {
-    intentarCerrarModal('modal-generico');
+function cerrarModal(force = false) {
+    intentarCerrarModal('modal-generico', force);
 }

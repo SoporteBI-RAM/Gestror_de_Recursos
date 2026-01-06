@@ -15,8 +15,11 @@ function cerrarGestionCategorias() {
 
 // Mostrar formulario de nueva categoría
 function mostrarFormularioCategoria() {
-    document.getElementById('modal-form-categoria').classList.add('active');
-    document.getElementById('form-categoria').reset();
+    const modal = document.getElementById('modal-form-categoria');
+    const form = document.getElementById('form-categoria');
+    modal.classList.add('active');
+    form.reset();
+    delete form.dataset.dirty;
     document.querySelector('#modal-form-categoria .modal-header h2').innerHTML = '<i class="fas fa-tag"></i> Nueva Categoría';
 }
 
@@ -135,7 +138,7 @@ async function guardarCategoria(event) {
                 'success'
             );
 
-            cerrarFormularioCategoria();
+            cerrarFormularioCategoria(true);
             cargarCategorias();
         } else {
             throw new Error(result.message || 'Error desconocido');

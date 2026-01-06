@@ -89,8 +89,11 @@ function renderizarTablaHerramientas() {
 }
 
 async function mostrarFormularioHerramienta() {
-    document.getElementById('modal-form-herramienta').classList.add('active');
-    document.getElementById('form-herramienta').reset();
+    const modal = document.getElementById('modal-form-herramienta');
+    const form = document.getElementById('form-herramienta');
+    modal.classList.add('active');
+    form.reset();
+    delete form.dataset.dirty;
     document.querySelector('#modal-form-herramienta .modal-header h2').innerHTML = '<i class="fas fa-tools"></i> Nueva Herramienta';
 
     // Cargar categorías dinámicamente
@@ -98,8 +101,8 @@ async function mostrarFormularioHerramienta() {
 }
 
 // Cerrar formulario de herramienta con confirmación
-function cerrarFormularioHerramienta() {
-    intentarCerrarModal('modal-form-herramienta');
+function cerrarFormularioHerramienta(force = false) {
+    intentarCerrarModal('modal-form-herramienta', force);
 }
 
 async function guardarHerramienta(event) {
@@ -142,7 +145,7 @@ async function guardarHerramienta(event) {
             appState.herramientas.push(tempHerramienta);
         }
 
-        cerrarFormularioHerramienta();
+        cerrarFormularioHerramienta(true);
         renderizarTablaHerramientas();
 
         // Enviar al servidor en segundo plano (sin await)
@@ -196,6 +199,8 @@ async function editarHerramienta(idHerr) {
     await cargarCategoriasEnSelect();
 
     const form = document.getElementById('form-herramienta');
+    form.reset();
+    delete form.dataset.dirty;
     form.querySelector('[name="id_herramienta"]').value = herr.ID_Herramienta;
     form.querySelector('[name="nombre_herramienta"]').value = herr.Nombre_Herramienta || '';
     form.querySelector('[name="categoria"]').value = herr.Categoria || '';
@@ -685,7 +690,7 @@ async function guardarTipoEntregable(event) {
         }
         appState.tiposEntregable.push(tempTipo);
 
-        cerrarModal();
+        cerrarModal(true);
         renderizarTablaTiposEntregable();
 
         // Enviar al servidor en segundo plano
@@ -784,7 +789,7 @@ async function actualizarTipoEntregable(event, id) {
             };
         }
 
-        cerrarModal();
+        cerrarModal(true);
         renderizarTablaTiposEntregable();
 
         // Enviar al servidor en segundo plano
@@ -931,7 +936,7 @@ async function guardarCategoriaHerramienta(event) {
         }
         appState.categoriasHerramientas.push(tempCategoria);
 
-        cerrarModal();
+        cerrarModal(true);
         renderizarTablaCategoriasHerramientas();
 
         // Enviar al servidor en segundo plano
@@ -1032,7 +1037,7 @@ async function actualizarCategoriaHerramienta(event, id) {
             };
         }
 
-        cerrarModal();
+        cerrarModal(true);
         renderizarTablaCategoriasHerramientas();
 
         // Enviar al servidor en segundo plano
