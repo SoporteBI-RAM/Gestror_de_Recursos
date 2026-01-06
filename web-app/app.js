@@ -269,13 +269,13 @@ function setupEventListeners() {
         }, 300));
     }
 
-    // Cerrar modales con ESC
+    // Cerrar modales con ESC (con confirmación si hay datos)
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            cerrarModalCliente();
-            cerrarFormularioCliente();
-            cerrarFormularioMarca();
-            cerrarFormularioEntregable();
+            const activeModal = document.querySelector('.modal.active');
+            if (activeModal) {
+                intentarCerrarModal(activeModal.id);
+            }
         }
     });
 
@@ -283,38 +283,55 @@ function setupEventListeners() {
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
-                // Verificar si hay un formulario en el modal
-                const form = modal.querySelector('form');
-                if (form) {
-                    // Verificar si el formulario tiene datos
-                    const formData = new FormData(form);
-                    let hasData = false;
-
-                    // Verificar si hay campos con valores (excepto campos hidden)
-                    for (let [key, value] of formData.entries()) {
-                        if (value && value.toString().trim() !== '' && !key.startsWith('id_')) {
-                            hasData = true;
-                            break;
-                        }
-                    }
-
-                    // Si hay datos, pedir confirmación
-                    if (hasData) {
-                        if (confirm('¿Deseas abandonar el formulario? Los cambios no guardados se perderán.')) {
-                            modal.classList.remove('active');
-                            form.reset();
-                        }
-                    } else {
-                        // Si no hay datos, cerrar directamente
-                        modal.classList.remove('active');
-                    }
-                } else {
-                    // Si no es un formulario, cerrar directamente
-                    modal.classList.remove('active');
-                }
+                intentarCerrarModal(modal.id);
             }
         });
     });
+}
+
+/**
+ * Verifica si un formulario tiene datos significativos
+ */
+function formularioTieneDatos(formElement) {
+    if (!formElement) return false;
+
+    const formData = new FormData(formElement);
+    for (let [key, value] of formData.entries()) {
+        if (value && value.toString().trim() !== '' && !key.startsWith('id_')) {
+            // Ignorar campos de estado por defecto si son 'Activo'
+            if (key === 'estado' && value === 'Activo') continue;
+            // Ignorar campos que solo tienen el valor inicial si es posible
+            // (Para este proyecto, cualquier valor no vacío suele ser entrada del usuario)
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Intenta cerrar un modal pidiendo confirmación si hay datos
+ */
+function intentarCerrarModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal || !modal.classList.contains('active')) return;
+
+    const form = modal.querySelector('form');
+    let hasData = false;
+
+    if (form) {
+        hasData = formularioTieneDatos(form);
+    }
+
+    if (hasData) {
+        if (confirm('¿Deseas abandonar el formulario? Los cambios no guardados se perderán.')) {
+            modal.classList.remove('active');
+            if (form) form.reset();
+        }
+    } else {
+        modal.classList.remove('active');
+        // No resetear aquí si es el modal de cliente (detalle), pero sí si es formulario
+        if (form && !modalId.includes('detalle')) form.reset();
+    }
 }
 
 // ========================================
@@ -343,9 +360,9 @@ function cambiarVista(viewName) {
     }
 }
 
-function refrescarVistaActual() {
-    // No refrescar si hay operaciones pendientes del usuario
-    if (appState.isUserOperating || appState.pendingOperations > 0) {
+function refrescarVistaActual(force = false) {
+    // No refrescar si hay operaciones pendientes del usuario, a menos que se fuerce
+    if (!force && (appState.isUserOperating || appState.pendingOperations > 0)) {
         console.log('⏸️ Operación en curso - pausando refresco automático');
         return;
     }
@@ -609,8 +626,8 @@ function renderizarTablaClientes() {
                                         </h4>
                                         <div class="marcas-lista">
                                             ${marcasCliente.map(marca => {
-                        const entregablesMarca = appState.entregables.filter(e => e.ID_Marca == marca.ID_Marca);
-                        return `
+                const entregablesMarca = appState.entregables.filter(e => e.ID_Marca == marca.ID_Marca);
+                return `
                                                 <div class="marca-item-container">
                                                     <div class="marca-item">
                                                         <div class="marca-info">
@@ -669,7 +686,7 @@ function renderizarTablaClientes() {
                                                     ` : ''}
                                                 </div>
                                             `;
-                    }).join('')}
+            }).join('')}
                                         </div>
                                     </div>
                                 </td>
@@ -906,8 +923,9 @@ function verDetalleCliente(idCliente) {
     modal.classList.add('active');
 }
 
+// Cerrar modal de detalle de cliente
 function cerrarModalCliente() {
-    document.getElementById('modal-cliente').classList.remove('active');
+    intentarCerrarModal('modal-cliente');
     appState.currentCliente = null;
 }
 
@@ -919,9 +937,9 @@ function mostrarFormularioCliente() {
     document.getElementById('modal-form-cliente').classList.add('active');
 }
 
+// Cerrar formulario de cliente
 function cerrarFormularioCliente() {
-    document.getElementById('modal-form-cliente').classList.remove('active');
-    document.getElementById('form-cliente').reset();
+    intentarCerrarModal('modal-form-cliente');
     // Restaurar título original
     document.querySelector('#modal-form-cliente .modal-header h2').innerHTML = '<i class="fas fa-plus"></i> Nuevo Cliente';
 }
@@ -998,7 +1016,7 @@ async function guardarCliente(event) {
 
         // Actualizar UI INMEDIATAMENTE
         cerrarFormularioCliente();
-        refrescarVistaActual();
+        refrescarVistaActual(true);
 
         // Guardar en Google Sheets en background
         enviarAlScript({
@@ -1016,7 +1034,7 @@ async function guardarCliente(event) {
                     if (index !== -1) {
                         appState.clientes[index].ID_Cliente = result.data.id;
                         localStorage.setItem('clientes', JSON.stringify(appState.clientes));
-                        refrescarVistaActual();
+                        refrescarVistaActual(true);
                     }
                 }
 
@@ -1095,7 +1113,7 @@ async function eliminarCliente(idCliente) {
         localStorage.setItem('clientes', JSON.stringify(appState.clientes));
 
         // Actualizar UI INMEDIATAMENTE
-        refrescarVistaActual();
+        refrescarVistaActual(true);
 
         // Eliminar en background (sin await)
         enviarAlScript({
@@ -1121,7 +1139,7 @@ async function eliminarCliente(idCliente) {
             // Revertir el cambio optimista
             appState.clientes.splice(index, 0, cliente);
             localStorage.setItem('clientes', JSON.stringify(appState.clientes));
-            refrescarVistaActual();
+            refrescarVistaActual(true);
         }).finally(() => {
             appState.pendingOperations--;
             if (appState.pendingOperations === 0) {
@@ -1366,9 +1384,9 @@ function mostrarFormularioMarca(idCliente) {
     document.getElementById('modal-form-marca').classList.add('active');
 }
 
+// Cerrar formulario de marca
 function cerrarFormularioMarca() {
-    document.getElementById('modal-form-marca').classList.remove('active');
-    document.getElementById('form-marca').reset();
+    intentarCerrarModal('modal-form-marca');
 }
 
 async function guardarMarca(event) {
@@ -1445,7 +1463,10 @@ async function guardarMarca(event) {
 
         // Actualizar UI INMEDIATAMENTE
         cerrarFormularioMarca();
-        refrescarVistaActual();
+        refrescarVistaActual(true);
+        if (appState.currentCliente && appState.currentCliente.ID_Cliente == idCliente) {
+            verDetalleCliente(idCliente);
+        }
 
         // Preparar payload para el nuevo formato genérico
         const payload = {
@@ -1469,7 +1490,10 @@ async function guardarMarca(event) {
                     if (index !== -1) {
                         appState.marcas[index].ID_Marca = result.data.id;
                         localStorage.setItem('marcas', JSON.stringify(appState.marcas));
-                        refrescarVistaActual();
+                        refrescarVistaActual(true);
+                        if (appState.currentCliente && appState.currentCliente.ID_Cliente == appState.marcas[index].ID_Cliente) {
+                            verDetalleCliente(appState.marcas[index].ID_Cliente);
+                        }
                     }
                 }
 
@@ -1544,7 +1568,10 @@ async function eliminarMarca(idMarca) {
         localStorage.setItem('marcas', JSON.stringify(appState.marcas));
 
         // Actualizar UI INMEDIATAMENTE
-        refrescarVistaActual();
+        refrescarVistaActual(true);
+        if (appState.currentCliente && appState.currentCliente.ID_Cliente == marca.ID_Cliente) {
+            verDetalleCliente(marca.ID_Cliente);
+        }
 
         // Eliminar en background (sin await)
         enviarAlScript({
@@ -1570,7 +1597,10 @@ async function eliminarMarca(idMarca) {
             // Revertir el cambio optimista
             appState.marcas.splice(index, 0, marca);
             localStorage.setItem('marcas', JSON.stringify(appState.marcas));
-            refrescarVistaActual();
+            refrescarVistaActual(true);
+            if (appState.currentCliente && appState.currentCliente.ID_Cliente == marca.ID_Cliente) {
+                verDetalleCliente(marca.ID_Cliente);
+            }
         }).finally(() => {
             appState.pendingOperations--;
             if (appState.pendingOperations === 0) {
@@ -1644,9 +1674,9 @@ function mostrarFormularioEntregable(idMarca) {
     modal.classList.add('active');
 }
 
+// Cerrar formulario de entregable
 function cerrarFormularioEntregable() {
-    const modal = document.getElementById('modal-form-entregable');
-    modal.classList.remove('active');
+    intentarCerrarModal('modal-form-entregable');
 }
 
 // Cargar clientes en el formulario de entregables
@@ -2093,7 +2123,10 @@ async function guardarEntregable(event) {
 
         // Actualizar UI INMEDIATAMENTE
         cerrarFormularioEntregable();
-        refrescarVistaActual();
+        refrescarVistaActual(true);
+        if (appState.currentCliente && appState.currentCliente.ID_Cliente == idCliente) {
+            verDetalleCliente(idCliente);
+        }
 
         // Preparar payload
         const payload = {
@@ -2120,6 +2153,9 @@ async function guardarEntregable(event) {
                         // Renderizar directamente en lugar de usar refrescarVistaActual()
                         if (appState.currentView === 'clientes') {
                             renderizarTablaClientes();
+                        }
+                        if (appState.currentCliente && appState.currentCliente.ID_Cliente == idCliente) {
+                            verDetalleCliente(idCliente);
                         }
                     }
                 }
@@ -2177,7 +2213,10 @@ async function eliminarEntregable(idEntregable) {
         localStorage.setItem('entregables', JSON.stringify(appState.entregables));
 
         // Actualizar UI INMEDIATAMENTE
-        refrescarVistaActual();
+        refrescarVistaActual(true);
+        if (appState.currentCliente && appState.currentCliente.ID_Cliente == entregable.ID_Cliente) {
+            verDetalleCliente(entregable.ID_Cliente);
+        }
 
         // Eliminar en background (sin await)
         enviarAlScript({
@@ -2203,7 +2242,10 @@ async function eliminarEntregable(idEntregable) {
             // Revertir el cambio optimista
             appState.entregables.splice(index, 0, entregable);
             localStorage.setItem('entregables', JSON.stringify(appState.entregables));
-            refrescarVistaActual();
+            refrescarVistaActual(true);
+            if (appState.currentCliente && appState.currentCliente.ID_Cliente == entregable.ID_Cliente) {
+                verDetalleCliente(entregable.ID_Cliente);
+            }
         }).finally(() => {
             appState.pendingOperations--;
             if (appState.pendingOperations === 0) {
@@ -2466,8 +2508,7 @@ function mostrarFormularioUser() {
 }
 
 function cerrarFormularioUser() {
-    document.getElementById('modal-form-user').classList.remove('active');
-    document.getElementById('form-user').reset();
+    intentarCerrarModal('modal-form-user');
 }
 
 async function guardarUser(event) {
@@ -2641,7 +2682,7 @@ function mostrarModal(titulo, contenidoHTML) {
 
         // Cerrar al hacer click fuera
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) cerrarModal();
+            if (e.target === modal) intentarCerrarModal('modal-generico');
         });
     } else {
         modal.querySelector('.modal-header h2').textContent = titulo;
@@ -2651,9 +2692,9 @@ function mostrarModal(titulo, contenidoHTML) {
     modal.classList.add('active');
 }
 
+/**
+ * Cierra el modal genérico con confirmación
+ */
 function cerrarModal() {
-    const modal = document.getElementById('modal-generico');
-    if (modal) {
-        modal.classList.remove('active');
-    }
+    intentarCerrarModal('modal-generico');
 }

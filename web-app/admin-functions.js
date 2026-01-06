@@ -2,133 +2,6 @@
 // GESTIÓN DE TIPOS DE ENTREGABLE
 // ========================================
 
-// Mostrar formulario de nuevo tipo
-function mostrarFormularioTipo() {
-    document.getElementById('modal-form-tipo-entregable').classList.add('active');
-    document.getElementById('form-tipo-entregable').reset();
-    document.querySelector('#modal-form-tipo-entregable .modal-header h2').innerHTML = '<i class="fas fa-tag"></i> Nuevo Tipo de Entregable';
-}
-
-// Cerrar formulario de tipo
-function cerrarFormularioTipo() {
-    document.getElementById('modal-form-tipo-entregable').classList.remove('active');
-    document.getElementById('form-tipo-entregable').reset();
-}
-
-// Guardar tipo de entregable
-async function guardarTipo(event) {
-    event.preventDefault();
-
-    const form = event.target;
-    const formData = new FormData(form);
-    const tipoId = formData.get('id_tipo');
-
-    const tipoData = {
-        Nombre_Tipo: formData.get('nombre_tipo'),
-        Descripcion: formData.get('descripcion'),
-        Estado: formData.get('estado')
-    };
-
-    console.log('📋 Datos de tipo a enviar:', tipoData);
-
-    try {
-        const isEdit = !!tipoId;
-
-        appState.isUserOperating = true;
-        appState.pendingOperations++;
-        mostrarBloqueoOperacion(isEdit ? 'Actualizando tipo...' : 'Creando tipo...');
-
-        const payload = {
-            action: isEdit ? 'update' : 'add',
-            sheetName: CONFIG.SHEETS.TIPOS_ENTREGABLE,
-            data: tipoData,
-            rowId: tipoId || ''
-        };
-
-        const result = await enviarAlScript(payload);
-
-        if (result.status === 'success') {
-            mostrarNotificacion(
-                isEdit ? 'Tipo actualizado correctamente' : 'Tipo creado correctamente',
-                'success'
-            );
-
-            cerrarFormularioTipo();
-            cargarTiposEntregable();
-        } else {
-            throw new Error(result.message || 'Error desconocido');
-        }
-
-    } catch (error) {
-        console.error('Error al guardar tipo:', error);
-        mostrarNotificacion('Error al guardar el tipo: ' + error.message, 'error');
-    } finally {
-        ocultarBloqueoOperacion();
-        appState.isUserOperating = false;
-        appState.pendingOperations = Math.max(0, appState.pendingOperations - 1);
-    }
-}
-
-// Editar tipo de entregable
-function editarTipo(id) {
-    const tipo = appState.tiposEntregable?.find(t => t.ID_Tipo == id);
-    if (!tipo) {
-        mostrarNotificacion('Tipo no encontrado', 'error');
-        return;
-    }
-
-    const form = document.getElementById('form-tipo');
-    form.querySelector('[name="id_tipo"]').value = tipo.ID_Tipo;
-    form.querySelector('[name="nombre_tipo"]').value = tipo.Nombre_Tipo || '';
-    form.querySelector('[name="descripcion"]').value = tipo.Descripcion || '';
-    form.querySelector('[name="estado"]').value = tipo.Estado || 'Activo';
-
-    document.querySelector('#modal-form-tipo .modal-header h2').innerHTML = '<i class="fas fa-edit"></i> Editar Tipo de Entregable';
-    document.getElementById('modal-form-tipo').classList.add('active');
-}
-
-// Eliminar tipo de entregable
-async function eliminarTipo(id) {
-    const tipo = appState.tiposEntregable?.find(t => t.ID_Tipo == id);
-    if (!tipo) return;
-
-    if (!confirm(`¿Eliminar tipo "${tipo.Nombre_Tipo}"?`)) return;
-
-    try {
-        appState.isUserOperating = true;
-        appState.pendingOperations++;
-        mostrarBloqueoOperacion('Eliminando tipo...');
-
-        const payload = {
-            action: 'delete',
-            sheetName: CONFIG.SHEETS.TIPOS_ENTREGABLE,
-            rowId: id
-        };
-
-        const result = await enviarAlScript(payload);
-
-        if (result.status === 'success') {
-            mostrarNotificacion('Tipo eliminado correctamente', 'success');
-
-            const index = appState.tiposEntregable.findIndex(t => t.ID_Tipo == id);
-            if (index !== -1) {
-                appState.tiposEntregable.splice(index, 1);
-            }
-
-            cargarTiposEntregable();
-        } else {
-            throw new Error(result.message || 'Error desconocido');
-        }
-
-    } catch (error) {
-        console.error('Error al eliminar tipo:', error);
-        mostrarNotificacion('Error al eliminar el tipo: ' + error.message, 'error');
-    } finally {
-        ocultarBloqueoOperacion();
-        appState.isUserOperating = false;
-        appState.pendingOperations = Math.max(0, appState.pendingOperations - 1);
-    }
-}
 
 // ========================================
 // GESTIÓN DE HERRAMIENTAS
@@ -224,9 +97,9 @@ async function mostrarFormularioHerramienta() {
     await cargarCategoriasEnSelect();
 }
 
+// Cerrar formulario de herramienta con confirmación
 function cerrarFormularioHerramienta() {
-    document.getElementById('modal-form-herramienta').classList.remove('active');
-    document.getElementById('form-herramienta').reset();
+    intentarCerrarModal('modal-form-herramienta');
 }
 
 async function guardarHerramienta(event) {
@@ -648,9 +521,9 @@ function renderizarTablaTiposEntregable() {
                         <td>${tipo.Descripcion || '-'}</td>
                         <td>
                             <span class="badge badge-${tipo.Estado === 'Activo' ? 'activo' :
-                        tipo.Estado === 'Inactivo' ? 'inactivo' :
-                            tipo.Estado === 'Pausado' ? 'pausado' : 'secondary'
-                    }">
+            tipo.Estado === 'Inactivo' ? 'inactivo' :
+                tipo.Estado === 'Pausado' ? 'pausado' : 'secondary'
+        }">
                                 ${tipo.Estado}
                             </span>
                         </td>
@@ -724,9 +597,9 @@ function renderizarTablaCategoriasHerramientas() {
                         <td>${cat.Descripcion || '-'}</td>
                         <td>
                             <span class="badge badge-${cat.Estado === 'Activo' ? 'activo' :
-                    cat.Estado === 'Inactivo' ? 'inactivo' :
-                        cat.Estado === 'Pausado' ? 'pausado' : 'secondary'
-                }">
+            cat.Estado === 'Inactivo' ? 'inactivo' :
+                cat.Estado === 'Pausado' ? 'pausado' : 'secondary'
+        }">
                                 ${cat.Estado}
                             </span>
                         </td>
@@ -776,7 +649,7 @@ function mostrarFormularioTipoEntregable() {
             </div>
 
             <div class="form-actions">
-                <button type="button" class="btn-secondary" onclick="cerrarModal()">Cancelar</button>
+                <button type="button" class="btn-secondary" onclick="intentarCerrarModal('modal-generico')">Cancelar</button>
                 <button type="submit" class="btn-primary">Guardar</button>
             </div>
         </form>
@@ -878,7 +751,7 @@ async function editarTipoEntregable(id) {
             </div>
 
             <div class="form-actions">
-                <button type="button" class="btn-secondary" onclick="cerrarModal()">Cancelar</button>
+                <button type="button" class="btn-secondary" onclick="intentarCerrarModal('modal-generico')">Cancelar</button>
                 <button type="submit" class="btn-primary">Actualizar</button>
             </div>
         </form>
@@ -1021,7 +894,7 @@ function mostrarFormularioCategoriaHerramienta() {
             </div>
 
             <div class="form-actions">
-                <button type="button" class="btn-secondary" onclick="cerrarModal()">Cancelar</button>
+                <button type="button" class="btn-secondary" onclick="intentarCerrarModal('modal-generico')">Cancelar</button>
                 <button type="submit" class="btn-primary">Guardar</button>
             </div>
         </form>
@@ -1126,7 +999,7 @@ async function editarCategoriaHerramienta(id) {
             </div>
 
             <div class="form-actions">
-                <button type="button" class="btn-secondary" onclick="cerrarModal()">Cancelar</button>
+                <button type="button" class="btn-secondary" onclick="intentarCerrarModal('modal-generico')">Cancelar</button>
                 <button type="submit" class="btn-primary">Actualizar</button>
             </div>
         </form>

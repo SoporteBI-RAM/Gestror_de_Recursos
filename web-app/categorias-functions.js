@@ -20,10 +20,9 @@ function mostrarFormularioCategoria() {
     document.querySelector('#modal-form-categoria .modal-header h2').innerHTML = '<i class="fas fa-tag"></i> Nueva Categoría';
 }
 
-// Cerrar formulario de categoría
+// Cerrar formulario de categoría con confirmación
 function cerrarFormularioCategoria() {
-    document.getElementById('modal-form-categoria').classList.remove('active');
-    document.getElementById('form-categoria').reset();
+    intentarCerrarModal('modal-form-categoria');
 }
 
 // Cargar lista de categorías
