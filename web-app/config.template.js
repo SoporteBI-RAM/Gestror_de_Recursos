@@ -221,9 +221,6 @@ function mostrarError(titulo, mensaje) {
     document.body.appendChild(errorDiv);
 }
 
-// Validar configuración al cargar
-document.addEventListener('DOMContentLoaded', () => {
-    if (!validarConfiguracion()) {
-        console.error('La configuración no es válida');
-    }
-});
+// Nota: La validación se ejecuta automáticamente cuando se intenta usar CONFIG
+// No es necesario validar en DOMContentLoaded porque puede mostrar errores falsos
+// mientras se cargan los archivos de configuración
