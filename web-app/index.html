@@ -705,6 +705,29 @@
         </div>
     </div>
 
+    <!-- Modal: Ver Detalle Entregable -->
+    <div id="modal-ver-entregable" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2><i class="fas fa-file-alt"></i> Detalle del Entregable</h2>
+                <button class="modal-close" onclick="cerrarVerEntregable()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="ver-entregable-content">
+                    <!-- Se llena dinámicamente -->
+                    <div class="loading">Cargando información...</div>
+                </div>
+                <div class="form-actions" style="margin-top: 20px; justify-content: flex-end;">
+                    <button type="button" class="btn-primary" onclick="cerrarVerEntregable()">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Formulario Recurso de Conectividad -->
     <div id="modal-form-recurso-admin" class="modal">
         <div class="modal-content modal-large">
