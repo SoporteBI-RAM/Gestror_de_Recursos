@@ -702,6 +702,11 @@ function renderizarTablaClientes() {
                                                                             <span class="badge badge-secondary">${entregable.Tipo_Entregable || 'Sin tipo'}</span>
                                                                             <span class="badge badge-${(entregable.Estado || 'Activo').toLowerCase()}">${entregable.Estado || 'Activo'}</span>
                                                                             <span class="entregable-frecuencia">${entregable.Frecuencia_Validacion || '-'}</span>
+                                                                            ${entregable.url_entregable ? `
+                                                                                <a href="${entregable.url_entregable}" target="_blank" class="link-entregable" title="Ver Entregable">
+                                                                                    <i class="fas fa-external-link-alt"></i> Link
+                                                                                </a>
+                                                                            ` : ''}
                                                                         </div>
                                                                         <div class="entregable-acciones">
                                                                             <button class="btn-icon-small" onclick="verDetalleEntregable('${entregable.ID_Entregable}')" title="Ver detalle">
@@ -1279,10 +1284,7 @@ function truncarURL(url, maxLength) {
     return url.substring(0, maxLength - 3) + '...';
 }
 
-function getHerramientaIcon(nombreHerramienta) {
-    const herramienta = appState.herramientas.find(h => h.Nombre_Herramienta === nombreHerramienta);
-    return herramienta ? herramienta.Icono : '🔧';
-}
+
 
 function mostrarCargando(mostrar) {
     // Implementación simple
@@ -1838,22 +1840,40 @@ function eliminarFilaHerramienta(id) {
     }
 }
 
+// Función para obtener icono de herramienta de forma segura
+function getHerramientaIcon(nombreHerramienta) {
+    if (!appState.herramientas) return '🔧';
+    const herramienta = appState.herramientas.find(h => h.Nombre_Herramienta === nombreHerramienta);
+    return (herramienta && herramienta.Icono) ? herramienta.Icono : '🔧';
+}
+
 function actualizarHerramientasHidden() {
     const herramientas = [];
-    const selects = document.querySelectorAll('.herramienta-select');
-    const inputs = document.querySelectorAll('.herramienta-url');
+    const tbody = document.getElementById('herramientas-list');
 
-    selects.forEach((select, index) => {
-        const herramienta = select.value;
-        const url = inputs[index]?.value || '';
-        if (herramienta && url) {
-            herramientas.push({ herramienta, url });
-        }
-    });
+    // Iterar sobre las filas de la tabla para asegurar la relación 1:1
+    if (tbody) {
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach(row => {
+            const select = row.querySelector('.herramienta-select');
+            const input = row.querySelector('.herramienta-url');
+
+            if (select && input) {
+                const herramienta = select.value;
+                const url = input.value || ''; // Permitir vacío si es necesario, o validar
+
+                // Solo guardar si al menos se seleccionó una herramienta
+                if (herramienta) {
+                    herramientas.push({ herramienta, url });
+                }
+            }
+        });
+    }
 
     const hidden = document.getElementById('hidden-herramientas');
     if (hidden) {
         hidden.value = JSON.stringify(herramientas);
+        console.log('📦 Herramientas actualizadas:', herramientas);
     }
 }
 
@@ -2099,6 +2119,138 @@ function editarEntregable(idEntregable) {
     modal.classList.add('active');
 }
 
+// ========================================
+// VER DETALLE ENTREGABLE
+// ========================================
+
+function verDetalleEntregable(idEntregable) {
+    const entregable = appState.entregables.find(e => e.ID_Entregable == idEntregable);
+    if (!entregable) {
+        mostrarNotificacion('Entregable no encontrado', 'error');
+        return;
+    }
+
+    const modal = document.getElementById('modal-ver-entregable');
+    const container = document.getElementById('ver-entregable-content');
+
+    // Datos relacionados
+    const cliente = appState.clientes.find(c => c.ID_Cliente == entregable.ID_Cliente);
+    const marca = appState.marcas.find(m => m.ID_Marca == entregable.ID_Marca);
+
+    // Parsear herramientas URLs si existen
+    let herramientasHtml = '<p class="text-muted">No hay herramientas registradas</p>';
+    if (entregable.URLs_Fuentes) {
+        try {
+            const herramientas = JSON.parse(entregable.URLs_Fuentes);
+            if (herramientas.length > 0) {
+                herramientasHtml = `
+                    <table class="herramientas-table" style="margin-top: 10px;">
+                        <thead>
+                            <tr>
+                                <th>Herramienta</th>
+                                <th>URL / Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${herramientas.map(h => `
+                                <tr>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            ${h.herramienta ? getHerramientaIcon(h.herramienta) : '🔧'}
+                                            ${h.herramienta || 'N/A'}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        ${h.url && h.url.startsWith('http')
+                        ? `<a href="${h.url}" target="_blank" class="text-link"><i class="fas fa-link"></i> ${truncarURL(h.url, 40)}</a>`
+                        : (h.url || '-')}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+        } catch (e) {
+            herramientasHtml = `<p class="text-error">Error al cargar herramientas: ${e.message}</p>`;
+        }
+    }
+
+    const html = `
+        <div class="detalle-header">
+            <div class="detalle-titulo">
+                <h3>${entregable.Nombre_Entregable}</h3>
+                <span class="badge badge-${(entregable.Estado || 'Activo').toLowerCase()}">${entregable.Estado || 'Activo'}</span>
+            </div>
+            <div class="detalle-meta">
+                <span><i class="fas fa-user-tie"></i> <strong>Cliente:</strong> ${cliente ? cliente.Nombre_Cliente : 'N/A'}</span>
+                <span><i class="fas fa-tag"></i> <strong>Marca:</strong> ${marca ? marca.Nombre_Marca : 'N/A'}</span>
+                <span><i class="fas fa-layer-group"></i> <strong>Tipo:</strong> ${entregable.Tipo_Entregable || 'N/A'}</span>
+            </div>
+        </div>
+
+        ${entregable.url_entregable ? `
+            <div class="detalle-section highlight-section">
+                <h4><i class="fas fa-external-link-alt"></i> Link Final</h4>
+                <a href="${entregable.url_entregable}" target="_blank" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                    Abrir Entregable <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+        ` : ''}
+
+        <div class="detalle-grid">
+            <div class="detalle-card">
+                <h4><i class="fas fa-calendar-check"></i> Validación</h4>
+                <p><strong>Frecuencia:</strong> ${entregable.Frecuencia_Validacion || '-'}</p>
+                <p><strong>Día(s):</strong> ${entregable.Dia_Validacion || '-'}</p>
+            </div>
+            
+            ${entregable.Automatizado === 'Sí' ? `
+                <div class="detalle-card">
+                    <h4><i class="fas fa-robot"></i> Automatización</h4>
+                    <span class="badge badge-success">Automatizado</span>
+                    ${entregable.Proceso_Automatizacion ? `<p style="margin-top: 10px; white-space: pre-wrap;">${entregable.Proceso_Automatizacion}</p>` : ''}
+                </div>
+            ` : ''}
+        </div>
+
+        <div class="detalle-section">
+            <h4><i class="fas fa-tools"></i> Herramientas y Fuentes</h4>
+            ${herramientasHtml}
+        </div>
+
+        ${entregable.Instrucciones_Tecnicas ? `
+            <div class="detalle-section">
+                <h4><i class="fas fa-cogs"></i> Instrucciones Técnicas</h4>
+                <div class="info-box">
+                    ${entregable.Instrucciones_Tecnicas.replace(/\n/g, '<br>')}
+                </div>
+            </div>
+        ` : ''}
+
+        ${entregable.Notas_Troubleshooting ? `
+            <div class="detalle-section">
+                <h4><i class="fas fa-life-ring"></i> Troubleshooting (Solución de Problemas)</h4>
+                <div class="info-box warning-box">
+                    ${entregable.Notas_Troubleshooting.replace(/\n/g, '<br>')}
+                </div>
+            </div>
+        ` : ''}
+    `;
+
+    container.innerHTML = html;
+    modal.classList.add('active');
+}
+
+function cerrarVerEntregable() {
+    const modal = document.getElementById('modal-ver-entregable');
+    modal.classList.remove('active');
+}
+
+// ========================================
+// GUARDAR ENTREGABLE (CREAR/EDITAR)
+// ========================================
+
 async function guardarEntregable(event) {
     event.preventDefault();
 
@@ -2141,6 +2293,7 @@ async function guardarEntregable(event) {
 
         // Actualizar campo hidden de herramientas antes de leer
         actualizarHerramientasHidden();
+        const urlsFuentesJson = document.getElementById('hidden-herramientas').value;
 
         const entregableData = {
             ID_Cliente: idCliente,
@@ -2150,7 +2303,7 @@ async function guardarEntregable(event) {
             url_entregable: formData.get('url_entregable') || '', // Columna exacta en Sheets
             Frecuencia_Validacion: formData.get('frecuencia_validacion') || '',
             Dia_Validacion: formData.get('dia_validacion') || '',
-            URLs_Fuentes: formData.get('urls_fuentes') || '',
+            URLs_Fuentes: urlsFuentesJson || '',
             Automatizado: formData.get('automatizado') ? 'Sí' : 'No',
             Proceso_Automatizacion: formData.get('proceso_automatizacion') || '',
             Instrucciones_Tecnicas: formData.get('instrucciones_tecnicas') || '',
