@@ -2013,6 +2013,7 @@ function editarEntregable(idEntregable) {
     form.querySelector('[name="id_marca"]').value = entregable.ID_Marca;
     form.querySelector('[name="nombre_entregable"]').value = entregable.Nombre_Entregable || '';
     form.querySelector('[name="tipo_entregable"]').value = entregable.Tipo_Entregable || '';
+    form.querySelector('[name="url_entregable"]').value = entregable.url_entregable || ''; // Cargar valor
     form.querySelector('[name="instrucciones_tecnicas"]').value = entregable.Instrucciones_Tecnicas || '';
     form.querySelector('[name="notas_troubleshooting"]').value = entregable.Notas_Troubleshooting || '';
     form.querySelector('[name="estado"]').value = entregable.Estado || 'Activo';
@@ -2146,6 +2147,7 @@ async function guardarEntregable(event) {
             ID_Marca: idMarca,
             Nombre_Entregable: nombreEntregable,
             Tipo_Entregable: formData.get('tipo_entregable') || '',
+            url_entregable: formData.get('url_entregable') || '', // Columna exacta en Sheets
             Frecuencia_Validacion: formData.get('frecuencia_validacion') || '',
             Dia_Validacion: formData.get('dia_validacion') || '',
             URLs_Fuentes: formData.get('urls_fuentes') || '',

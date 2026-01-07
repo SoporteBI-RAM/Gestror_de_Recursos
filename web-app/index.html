@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +10,7 @@
     <!-- Protección de autenticación - debe cargarse PRIMERO -->
     <script src="auth.js"></script>
 </head>
+
 <body>
     <!-- Header -->
     <header class="header">
@@ -188,7 +190,8 @@
             </div>
 
             <p style="color: #5F6368; margin-bottom: 24px;">
-                Gestiona todos los catálogos y tablas maestras del sistema. Todos los cambios se sincronizan automáticamente con Google Sheets.
+                Gestiona todos los catálogos y tablas maestras del sistema. Todos los cambios se sincronizan
+                automáticamente con Google Sheets.
             </p>
 
             <!-- Tabs de Administración -->
@@ -298,7 +301,8 @@
                     <input type="hidden" name="id_cliente" value="">
                     <div class="form-group">
                         <label>Nombre del Cliente *</label>
-                        <input type="text" name="nombre_cliente" id="input-nombre-cliente" required style="text-transform: uppercase;">
+                        <input type="text" name="nombre_cliente" id="input-nombre-cliente" required
+                            style="text-transform: uppercase;">
                     </div>
                     <div class="form-group">
                         <label>Fecha de Inicio</label>
@@ -346,7 +350,8 @@
 
                     <div class="form-group">
                         <label>Cliente *</label>
-                        <select name="cliente" id="select-cliente-entregable" required onchange="cargarMarcasDeCliente(this.value)">
+                        <select name="cliente" id="select-cliente-entregable" required
+                            onchange="cargarMarcasDeCliente(this.value)">
                             <option value="">Selecciona un cliente...</option>
                             <!-- Se carga dinámicamente desde tabla Clientes -->
                         </select>
@@ -374,8 +379,16 @@
                     </div>
 
                     <div class="form-group">
+                        <label>URL del Entregable</label>
+                        <input type="url" name="url_entregable" placeholder="https://docs.google.com/..."
+                            style="width: 100%;">
+                        <small class="form-help">Enlace directo al entregable final (Drive, Dashboard, etc.)</small>
+                    </div>
+
+                    <div class="form-group">
                         <label>Frecuencia de Validación *</label>
-                        <select name="frecuencia_validacion" id="select-frecuencia-validacion" required onchange="actualizarCampoDiaValidacion(this.value)">
+                        <select name="frecuencia_validacion" id="select-frecuencia-validacion" required
+                            onchange="actualizarCampoDiaValidacion(this.value)">
                             <option value="">Selecciona frecuencia...</option>
                             <option value="Diario">Diario</option>
                             <option value="Semanal">Semanal</option>
@@ -419,7 +432,8 @@
 
                     <div class="form-group">
                         <label class="checkbox-label-inline">
-                            <input type="checkbox" id="checkbox-automatizado" name="automatizado" onchange="toggleAutomatizadoField()">
+                            <input type="checkbox" id="checkbox-automatizado" name="automatizado"
+                                onchange="toggleAutomatizadoField()">
                             <span>Automatizado</span>
                         </label>
                         <small class="form-help">Marca si este entregable tiene algún proceso automatizado</small>
@@ -427,19 +441,22 @@
 
                     <div class="form-group" id="campo-proceso-automatizacion" style="display: none;">
                         <label>Proceso de Automatización</label>
-                        <textarea name="proceso_automatizacion" id="textarea-proceso-automatizacion" rows="4" placeholder="Describe el proceso de automatización:&#10;- ¿Qué herramienta automatiza? (ej: script, Zapier, Power Automate)&#10;- ¿Cuándo se ejecuta? (ej: diariamente a las 6 AM)&#10;- ¿Qué hace exactamente?"></textarea>
+                        <textarea name="proceso_automatizacion" id="textarea-proceso-automatizacion" rows="4"
+                            placeholder="Describe el proceso de automatización:&#10;- ¿Qué herramienta automatiza? (ej: script, Zapier, Power Automate)&#10;- ¿Cuándo se ejecuta? (ej: diariamente a las 6 AM)&#10;- ¿Qué hace exactamente?"></textarea>
                         <small class="form-help">Explica cómo funciona la automatización</small>
                     </div>
 
                     <div class="form-group">
                         <label>Instrucciones Técnicas</label>
-                        <textarea name="instrucciones_tecnicas" rows="5" placeholder="¿Cómo está construido este entregable?&#10;Ejemplo:&#10;- Se actualiza automáticamente a las 6 AM&#10;- Conecta a Supermetrics para Meta Ads&#10;- Los datos se procesan en BigQuery&#10;- El dashboard se visualiza en Power BI"></textarea>
+                        <textarea name="instrucciones_tecnicas" rows="5"
+                            placeholder="¿Cómo está construido este entregable?&#10;Ejemplo:&#10;- Se actualiza automáticamente a las 6 AM&#10;- Conecta a Supermetrics para Meta Ads&#10;- Los datos se procesan en BigQuery&#10;- El dashboard se visualiza en Power BI"></textarea>
                         <small class="form-help">Describe cómo funciona y cómo está conectado</small>
                     </div>
 
                     <div class="form-group">
                         <label>Notas de Troubleshooting</label>
-                        <textarea name="notas_troubleshooting" rows="5" placeholder="¿Qué hacer si hay errores?&#10;Ejemplo:&#10;- Si no hay datos: revisar Supermetrics > Accounts&#10;- Si Sheet falla: verificar permisos de acceso&#10;- Si BigQuery da error: revisar Query History en GCP Console"></textarea>
+                        <textarea name="notas_troubleshooting" rows="5"
+                            placeholder="¿Qué hacer si hay errores?&#10;Ejemplo:&#10;- Si no hay datos: revisar Supermetrics > Accounts&#10;- Si Sheet falla: verificar permisos de acceso&#10;- Si BigQuery da error: revisar Query History en GCP Console"></textarea>
                         <small class="form-help">Soluciones a problemas comunes</small>
                     </div>
 
@@ -479,7 +496,8 @@
                     <input type="hidden" name="id_cliente" value="">
                     <div class="form-group">
                         <label>Nombre de la Marca *</label>
-                        <input type="text" name="nombre_marca" id="input-nombre-marca" required placeholder="Ej: COCA-COLA ECUADOR, FANTA MÉXICO" style="text-transform: uppercase;">
+                        <input type="text" name="nombre_marca" id="input-nombre-marca" required
+                            placeholder="Ej: COCA-COLA ECUADOR, FANTA MÉXICO" style="text-transform: uppercase;">
                     </div>
                     <div class="form-group">
                         <label>Estado</label>
@@ -601,23 +619,15 @@
                     <div class="form-group">
                         <label>Icono (Emoji)</label>
                         <div style="position: relative;">
-                            <input
-                                type="text"
-                                name="icono"
-                                id="icono-categoria-input"
-                                placeholder="Click para seleccionar un icono"
-                                maxlength="2"
-                                readonly
+                            <input type="text" name="icono" id="icono-categoria-input"
+                                placeholder="Click para seleccionar un icono" maxlength="2" readonly
                                 style="cursor: pointer; padding-right: 40px; font-size: 20px; text-align: center;">
-                            <button
-                                type="button"
-                                onclick="toggleIconPickerCategoria()"
+                            <button type="button" onclick="toggleIconPickerCategoria()"
                                 style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 16px; cursor: pointer; color: #5F6368;">
                                 ▼
                             </button>
                         </div>
-                        <div
-                            id="icon-picker-categoria"
+                        <div id="icon-picker-categoria"
                             style="display: none; margin-top: 10px; padding: 15px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; max-height: 400px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
                             <div>
                                 <!-- Iconos serán insertados por JavaScript -->
@@ -672,7 +682,8 @@
                     </div>
                     <div class="form-group">
                         <label>Descripción</label>
-                        <textarea name="descripcion" rows="3" placeholder="Breve descripción de la herramienta..."></textarea>
+                        <textarea name="descripcion" rows="3"
+                            placeholder="Breve descripción de la herramienta..."></textarea>
                     </div>
                     <div class="form-group">
                         <label>Estado *</label>
@@ -709,7 +720,8 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label>Nombre del Recurso *</label>
-                            <input type="text" name="nombre_recurso" required placeholder="Ej: Conexión Google Analytics Principal">
+                            <input type="text" name="nombre_recurso" required
+                                placeholder="Ej: Conexión Google Analytics Principal">
                         </div>
                         <div class="form-group">
                             <label>Herramienta *</label>
@@ -749,7 +761,8 @@
                     </div>
                     <div class="form-group">
                         <label>Notas</label>
-                        <textarea name="notas" rows="3" placeholder="Información adicional sobre este recurso..."></textarea>
+                        <textarea name="notas" rows="3"
+                            placeholder="Información adicional sobre este recurso..."></textarea>
                     </div>
                     <div class="form-actions">
                         <button type="button" class="btn-secondary" onclick="cerrarFormularioRecursoAdmin()">
@@ -778,7 +791,8 @@
                     <input type="hidden" name="id_origen">
                     <div class="form-group">
                         <label>Nombre del Origen *</label>
-                        <input type="text" name="nombre_origen" required placeholder="Ej: Google Ads - Cuenta Principal">
+                        <input type="text" name="nombre_origen" required
+                            placeholder="Ej: Google Ads - Cuenta Principal">
                     </div>
                     <div class="form-group">
                         <label>Tipo de Origen *</label>
@@ -922,11 +936,12 @@
 
     <script>
         // Cargar dashboard automáticamente al inicio
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             setTimeout(() => {
                 cargarDashboardValidacion();
             }, 500);
         });
     </script>
 </body>
+
 </html>
