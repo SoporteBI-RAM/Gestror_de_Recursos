@@ -448,14 +448,20 @@ async function cargarCategoriasEnSelect() {
     if (!select) return;
 
     try {
-        // Mostrar estado de carga
-        select.innerHTML = '<option value="">Cargando categorías...</option>';
+        // PRIORIDAD LOCAL: Si ya tenemos datos, úsalos.
+        if (!appState.categoriasHerramientas || appState.categoriasHerramientas.length === 0) {
+            // Solo mostrar cargando si realmente vamos a cargar
+            select.innerHTML = '<option value="">Cargando categorías...</option>';
 
-        // Leer categorías desde Google Sheets
-        const data = await leerHoja(CONFIG.SHEETS.CATEGORIAS_HERRAMIENTAS);
-        const categorias = convertirAObjetos(data);
+            // Leer categorías desde Google Sheets
+            const data = await leerHoja(CONFIG.SHEETS.CATEGORIAS_HERRAMIENTAS);
+            appState.categoriasHerramientas = convertirAObjetos(data);
+        } else {
+            console.log('⚡ Usando categorías en memoria local');
+        }
 
         // Filtrar solo categorías activas
+        const categorias = appState.categoriasHerramientas || [];
         const categoriasActivas = categorias.filter(cat => cat.Estado === 'Activo');
 
         // Construir las opciones

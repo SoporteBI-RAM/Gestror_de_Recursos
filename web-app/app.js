@@ -21,7 +21,9 @@ window.appState = {
     expandedClientes: new Set(),
     isUserOperating: false,
     pendingOperations: 0,
-    currentUser: 'Admin'
+    pendingOperations: 0,
+    currentUser: 'Admin',
+    lastWriteTime: 0 // Timestamp de la última escritura para controlar el cooldown de sync
 };
 
 const appState = window.appState;
@@ -165,6 +167,14 @@ async function cargarTodosDatos() {
 
 async function sincronizarDatosInteligente() {
     try {
+        // COOLDOWN CHECK: Si hubo una escritura reciente (últimos 15s), saltar sincronización
+        // Esto evita que datos viejos del servidor sobrescriban cambios locales recientes (flickering)
+        const SYNC_COOLDOWN_MS = 15000;
+        if (Date.now() - appState.lastWriteTime < SYNC_COOLDOWN_MS) {
+            console.log('⏳ Sincronización pospuesta - En periodo de cooldown tras escritura');
+            return;
+        }
+
         // NO bloquear UI - cargar en background solo hojas necesarias
         const [clientesData, marcasData, entregablesData, validacionesData, herramientasData, categoriasData, tiposData, usersData] = await Promise.all([
             leerHoja(CONFIG.SHEETS.CLIENTES),
@@ -414,9 +424,15 @@ async function cargarTiposEntregable() {
         const select = document.getElementById('select-tipo-entregable');
         if (!select) return;
 
-        console.log('🔄 Cargando tipos de entregable para el select...');
-        const data = await leerHoja(CONFIG.SHEETS.TIPOS_ENTREGABLE);
-        appState.tiposEntregable = convertirAObjetos(data);
+        // PRIORIDAD LOCAL: Si ya tenemos datos, úsalos. La sincronización de fondo (60s) se encarga de actualizar.
+        // Solo cargamos del servidor si la lista está vacía.
+        if (!appState.tiposEntregable || appState.tiposEntregable.length === 0) {
+            console.log('🔄 Cargando tipos de entregable (lista vacía/inicial)...');
+            const data = await leerHoja(CONFIG.SHEETS.TIPOS_ENTREGABLE);
+            appState.tiposEntregable = convertirAObjetos(data);
+        } else {
+            console.log('⚡ Usando tipos de entregable en memoria local');
+        }
 
         let options = '<option value="">Selecciona tipo de entregable...</option>';
         appState.tiposEntregable.forEach(tipo => {
@@ -1335,6 +1351,12 @@ async function enviarAlScript(payload) {
 
     console.log('📤 Enviando al servidor:', JSON.stringify(payload, null, 2));
 
+    // ACTIVAR COOLDOWN: Marcar tiempo de escritura para pausar sincronización automática
+    if (appState) {
+        appState.lastWriteTime = Date.now();
+        console.log('🕒 Cooldown activado por escritura local');
+    }
+
     try {
         const response = await fetch(CONFIG.SCRIPT_URL, {
             method: 'POST',
@@ -1352,6 +1374,11 @@ async function enviarAlScript(payload) {
 
         const result = await response.json();
         console.log('📥 Respuesta del servidor:', result);
+
+        // EXTENDER COOLDOWN: Actualizar timestamp al confirmar éxito para dar tiempo a propagación
+        if (appState) {
+            appState.lastWriteTime = Date.now();
+        }
 
         return result;
 
