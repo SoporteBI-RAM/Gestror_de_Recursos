@@ -20,6 +20,12 @@ function mostrarFormularioCategoria() {
     modal.classList.add('active');
     form.reset();
     delete form.dataset.dirty;
+
+    // Limpiar ID explícitamente porque form.reset() no limpia campos hidden
+    if (form.querySelector('[name="id_categoria"]')) {
+        form.querySelector('[name="id_categoria"]').value = '';
+    }
+
     document.querySelector('#modal-form-categoria .modal-header h2').innerHTML = '<i class="fas fa-tag"></i> Nueva Categoría';
 }
 

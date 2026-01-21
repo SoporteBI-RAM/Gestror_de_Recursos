@@ -94,6 +94,12 @@ async function mostrarFormularioHerramienta() {
     modal.classList.add('active');
     form.reset();
     delete form.dataset.dirty;
+
+    // Limpiar ID explícitamente porque form.reset() no limpia campos hidden
+    if (form.querySelector('[name="id_herramienta"]')) {
+        form.querySelector('[name="id_herramienta"]').value = '';
+    }
+
     document.querySelector('#modal-form-herramienta .modal-header h2').innerHTML = '<i class="fas fa-tools"></i> Nueva Herramienta';
 
     // Cargar categorías dinámicamente
@@ -883,6 +889,7 @@ async function eliminarTipoEntregable(id) {
 function mostrarFormularioCategoriaHerramienta() {
     mostrarModal('Nueva Categoría de Herramienta', `
         <form id="form-categoria-herramienta" onsubmit="guardarCategoriaHerramienta(event)">
+            <input type="hidden" name="id_categoria_herramienta" value="">
             <div class="form-group">
                 <label>Nombre de la Categoría *</label>
                 <input type="text" name="nombre_categoria" required placeholder="Ej: VISUALIZACIÓN" style="text-transform: uppercase;">

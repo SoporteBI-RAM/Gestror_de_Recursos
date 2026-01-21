@@ -1032,6 +1032,12 @@ function mostrarFormularioCliente() {
     modal.classList.add('active');
     form.reset();
     delete form.dataset.dirty;
+
+    // Limpiar ID explícitamente porque form.reset() no limpia campos hidden
+    if (form.querySelector('[name="id_cliente"]')) {
+        form.querySelector('[name="id_cliente"]').value = '';
+    }
+
     // Protección de concurrencia
     appState.isUserOperating = true;
 }
@@ -1747,12 +1753,20 @@ function mostrarFormularioEntregable(idMarca) {
     const modal = document.getElementById('modal-form-entregable');
     const form = document.getElementById('form-entregable');
 
-    // Limpiar formulario
+    // Limpiar formulario y campos ocultos
     form.reset();
     delete form.dataset.dirty;
+
+    // Limpiar IDs y campos ocultos explícitamente (reset() no toca campos hidden)
     form.querySelector('[name="id_entregable"]').value = '';
     form.querySelector('[name="id_cliente"]').value = marca.ID_Cliente;
     form.querySelector('[name="id_marca"]').value = idMarca;
+
+    const hiddenResponsables = document.getElementById('hidden-responsables');
+    if (hiddenResponsables) hiddenResponsables.value = '';
+
+    const hiddenHerramientas = document.getElementById('hidden-herramientas');
+    if (hiddenHerramientas) hiddenHerramientas.value = '';
 
     // Cargar opciones dinámicas
     cargarClientesEnFormulario();
@@ -1814,9 +1828,6 @@ function cerrarFormularioEntregable(force = false) {
 
     // Liberar estado de operación
     appState.isUserOperating = false;
-}
-function cerrarFormularioEntregable(force = false) {
-    intentarCerrarModal('modal-form-entregable', force);
 }
 
 // Cargar clientes en el formulario de entregables
@@ -2968,6 +2979,12 @@ function mostrarFormularioUser() {
     modal.classList.add('active');
     form.reset();
     delete form.dataset.dirty;
+
+    // Limpiar ID explícitamente porque form.reset() no limpia campos hidden
+    if (form.querySelector('[name="id_user"]')) {
+        form.querySelector('[name="id_user"]').value = '';
+    }
+
     document.querySelector('#modal-form-user .modal-header h2').innerHTML = '<i class="fas fa-user-plus"></i> Nuevo Usuario';
     // Protección de concurrencia
     appState.isUserOperating = true;
