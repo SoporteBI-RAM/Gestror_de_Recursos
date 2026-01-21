@@ -1764,10 +1764,16 @@ function mostrarFormularioEntregable(idMarca) {
     agregarFilaHerramienta();
 
     // Limpiar campo automatizado
-    const checkboxAutomatizado = document.getElementById('checkbox-automatizado');
+    const selectNivelAuto = document.getElementById('select-nivel-automatizacion');
     const campoAutomatizacion = document.getElementById('campo-proceso-automatizacion');
-    if (checkboxAutomatizado) checkboxAutomatizado.checked = false;
+    const textareaAuto = document.getElementById('textarea-proceso-automatizacion');
+
+    if (selectNivelAuto) selectNivelAuto.value = 'Manual';
     if (campoAutomatizacion) campoAutomatizacion.style.display = 'none';
+    if (textareaAuto) {
+        textareaAuto.value = '';
+        textareaAuto.required = false;
+    }
 
     // Pre-seleccionar cliente y marca
     setTimeout(() => {
@@ -2041,18 +2047,20 @@ function cargarHerramientasDesdeJSON(jsonString) {
 
 // Toggle campo de automatización
 function toggleAutomatizadoField() {
-    const checkbox = document.getElementById('checkbox-automatizado');
+    const select = document.getElementById('select-nivel-automatizacion');
     const campo = document.getElementById('campo-proceso-automatizacion');
     const textarea = document.getElementById('textarea-proceso-automatizacion');
 
-    if (checkbox && campo) {
-        if (checkbox.checked) {
+    if (select && campo && textarea) {
+        const nivel = select.value;
+        if (nivel === 'Semiautomatizado' || nivel === 'Automatizado') {
             campo.style.display = 'block';
             textarea.required = true;
         } else {
             campo.style.display = 'none';
             textarea.required = false;
-            textarea.value = '';
+            // No limpiar el valor por si el usuario cambia de opinión accidentalmente,
+            // pero sí quitar el required para que no bloquee.
         }
     }
 }
