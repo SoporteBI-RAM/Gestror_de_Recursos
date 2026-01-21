@@ -597,11 +597,15 @@ function renderizarTablaClientes() {
         return;
     }
 
+    // Ordenar clientes por el campo 'Orden'
+    appState.clientes.sort((a, b) => (Number(a.Orden) || 999) - (Number(b.Orden) || 999));
+
     const html = `
         <table class="data-table">
             <thead>
                 <tr>
                     <th style="width: 30px;"></th>
+                    <th style="width: 30px;"></th> <!-- Columna para Drag Handle -->
                     <th>Cliente</th>
                     <th>Marcas</th>
                     <th>Estado</th>
@@ -640,6 +644,7 @@ function renderizarTablaClientes() {
                                     </button>
                                 ` : ''}
                             </td>
+                            <td class="drag-handle"><i class="fas fa-grip-vertical"></i></td>
                             <td><strong>${cliente.Nombre_Cliente}</strong></td>
                             <td>
                                 <span class="marcas-count">${marcasCliente.length} ${marcasCliente.length === 1 ? 'marca' : 'marcas'}</span>
@@ -674,12 +679,13 @@ function renderizarTablaClientes() {
                                             <i class="fas fa-tags"></i> Marcas de ${cliente.Nombre_Cliente}
                                         </h4>
                                         <div class="marcas-lista">
-                                            ${marcasCliente.map(marca => {
+                                            ${marcasCliente.sort((a, b) => (Number(a.Orden) || 999) - (Number(b.Orden) || 999)).map(marca => {
                 const entregablesMarca = appState.entregables.filter(e => e.ID_Marca == marca.ID_Marca);
                 return `
                                                 <div class="marca-item-container">
-                                                    <div class="marca-item">
+                                                    <div class="marca-item" data-marca-id="${marca.ID_Marca}">
                                                         <div class="marca-info">
+                                                            <div class="drag-handle" style="display:inline-block; margin-right: 8px;"><i class="fas fa-grip-vertical"></i></div>
                                                             ${entregablesMarca.length > 0 ? `
                                                                 <button class="btn-expand-small" onclick="toggleEntregables('${marca.ID_Marca}')" title="Ver entregables">
                                                                     <i class="fas fa-chevron-right" id="expand-entregables-icon-${marca.ID_Marca}"></i>
@@ -748,11 +754,23 @@ function renderizarTablaClientes() {
             const icono = document.getElementById(`expand-entregables-icon-${idMarca}`);
             if (divExpandible && icono) {
                 divExpandible.style.display = 'block';
-                icono.classList.remove('fa-chevron-right');
-                icono.classList.add('fa-chevron-down');
+                if (icono) {
+                    icono.classList.remove('fa-chevron-right');
+                    icono.classList.add('fa-chevron-down');
+                }
+                // Inicializar Sortable para entregables de esta marca
+                inicializarSortableEntregables(idMarca);
             }
         });
     }
+
+    // Inicializar Sortable para clientes
+    inicializarSortableClientes();
+
+    // Inicializar Sortable para marcas de clientes expandidos
+    appState.expandedClientes.forEach(idCliente => {
+        inicializarSortableMarcas(idCliente);
+    });
 }
 
 // ========================================
@@ -808,7 +826,7 @@ function verDetalleCliente(idCliente) {
                 <strong>Estado:</strong> <span class="badge ${estadoBadge}">${estado}</span>
             </div>
             <div class="info-item">
-                <strong>Fecha Inicio:</strong> ${formatearFecha(cliente.Fecha_Inicio)}
+                <strong>Fecha Inicio:</strong> ${formatearFecha(cliente.Fecha_Creacion)}
             </div>
             <div class="info-item">
                 <strong>Marcas:</strong> ${marcas.length}
@@ -1059,7 +1077,7 @@ async function guardarCliente(event) {
 
     const clienteData = {
         Nombre_Cliente: formData.get('nombre_cliente'),
-        Fecha_Inicio: formData.get('fecha_inicio'),
+        Fecha_Creacion: formData.get('fecha_inicio'),
         Estado: formData.get('estado'),
         Notas: formData.get('notas')
     };
@@ -1122,7 +1140,7 @@ async function guardarCliente(event) {
                 appState.clientes.push({
                     ID_Cliente: result.data.id || `temp_${Date.now()}`,
                     ...clienteData,
-                    Fecha_Creacion: new Date().toISOString()
+                    Fecha_Creacion: clienteData.Fecha_Creacion || new Date().toISOString()
                 });
             }
 
@@ -1167,7 +1185,7 @@ function editarCliente(idCliente) {
     delete form.dataset.dirty;
     form.querySelector('[name="id_cliente"]').value = cliente.ID_Cliente;
     form.querySelector('[name="nombre_cliente"]').value = cliente.Nombre_Cliente || '';
-    form.querySelector('[name="fecha_inicio"]').value = cliente.Fecha_Inicio || '';
+    form.querySelector('[name="fecha_inicio"]').value = formatearFechaParaInput(cliente.Fecha_Creacion);
     form.querySelector('[name="estado"]').value = cliente.Estado || 'Activo';
     form.querySelector('[name="notas"]').value = cliente.Notas || '';
 
@@ -1263,6 +1281,9 @@ function toggleMarcas(idCliente) {
         icono.classList.remove('fa-chevron-right');
         icono.classList.add('fa-chevron-down');
         appState.expandedClientes.add(idCliente); // Guardar estado
+
+        // Inicializar Sortable para las marcas de este cliente
+        inicializarSortableMarcas(idCliente);
     } else {
         // Colapsar
         filaExpandible.style.display = 'none';
@@ -1286,6 +1307,9 @@ function toggleEntregables(idMarca) {
         // Guardar estado expandido
         if (!appState.expandedMarcas) appState.expandedMarcas = new Set();
         appState.expandedMarcas.add(idMarca);
+
+        // Inicializar Sortable para los entregables de esta marca
+        inicializarSortableEntregables(idMarca);
     } else {
         // Colapsar
         divExpandible.style.display = 'none';
@@ -1314,6 +1338,14 @@ function formatearFecha(fecha) {
     if (isNaN(date.getTime())) return fecha;
     return date.toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
 }
+
+function formatearFechaParaInput(fecha) {
+    if (!fecha) return '';
+    const date = new Date(fecha);
+    if (isNaN(date.getTime())) return '';
+    return date.toISOString().split('T')[0];
+}
+
 
 function calcularTiempoTranscurrido(fecha) {
     if (!fecha) return '';
@@ -2780,6 +2812,16 @@ const additionalStyles = `
 .recurso-url code { flex: 1; font-size: 12px; color: var(--text-secondary); }
 .recurso-meta { display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
 
+/* ESTILOS PARA DRAG AND DROP (SORTABLE JS) */
+.drag-handle { cursor: grab; color: #ccc; padding-right: 10px; }
+.drag-handle:active { cursor: grabbing; }
+.sortable-ghost { opacity: 0.4; background: var(--primary-color) !important; }
+.sortable-chosen { background: #f0f7ff !important; }
+.sortable-drag { opacity: 0.9; }
+.data-table tr { cursor: default; }
+.data-table .drag-handle { display: table-cell; vertical-align: middle; }
+.marca-item .drag-handle { margin-right: 10px; }
+
 /* OVERLAY DE BLOQUEO DURANTE OPERACIONES */
 #operation-overlay {
     display: none;
@@ -3253,14 +3295,18 @@ function renderizarListaEntregablesAgrupados(entregables) {
             else if (valLower.includes('revisión') || valLower.includes('desarrollo') || valLower.includes('pendiente')) valClass = 'val-warning';
 
             html += `
-                <div class="entregables-subgrupo ${valClass}">
+                <div class="entregables-subgrupo ${valClass} entregables-lista">
                     <div class="entregables-subgrupo-label">
                         <i class="fas fa-shield-alt"></i> Validación: ${valKey} (${itemsVal.length})
                     </div>
             `;
 
-            // 3. Ordenar por Frecuencia y Renderizar items
+            // 3. Ordenar por 'Orden' (primario) y Frecuencia (secundario)
             const itemsOrdenados = itemsVal.sort((a, b) => {
+                const ordenA = Number(a.Orden) || 9999;
+                const ordenB = Number(b.Orden) || 9999;
+                if (ordenA !== ordenB) return ordenA - ordenB;
+
                 const frecA = ordenFrecuencia[a.Frecuencia_Validacion] || 99;
                 const frecB = ordenFrecuencia[b.Frecuencia_Validacion] || 99;
                 return frecA - frecB;
@@ -3268,7 +3314,8 @@ function renderizarListaEntregablesAgrupados(entregables) {
 
             itemsOrdenados.forEach(entregable => {
                 html += `
-                    <div class="entregable-item">
+                    <div class="entregable-item" data-entregable-id="${entregable.ID_Entregable}">
+                        <div class="drag-handle" style="display:inline-block; margin-right: 8px;"><i class="fas fa-grip-vertical"></i></div>
                         <div class="entregable-info">
                             <i class="fas fa-file-alt"></i>
                             <strong>${entregable.Nombre_Entregable}</strong>
@@ -3318,13 +3365,171 @@ function renderizarListaEntregablesAgrupados(entregables) {
 }
 
 /**
- * Obtiene la clase CSS para el badge de validación
+ * Persistencia de reordenamiento mediante Drag and Drop
+ * @param {string} tipo 'Clientes', 'Marcas' o 'Entregables'
+ * @param {Array} data [{id: string, order: number}]
  */
-function getValidacionBadgeClass(estado) {
-    if (!estado) return 'success';
-    estado = estado.toLowerCase();
-    if (estado.includes('error')) return 'danger';
-    if (estado.includes('ok')) return 'success';
-    if (estado.includes('revisi') || estado.includes('desarrollo') || estado.includes('pendiente')) return 'warning';
-    return 'secondary';
+async function guardarNuevoOrden(tipo, data) {
+    try {
+        mostrarBloqueoOperacion(`Guardando nuevo orden de ${tipo}...`);
+
+        const payload = {
+            action: 'bulkUpdateOrder',
+            sheetName: tipo,
+            orderData: data,
+            user: appState.currentUser
+        };
+
+        const response = await enviarAlScript(payload);
+
+        if (response.status === 'success') {
+            console.log(`✅ Orden de ${tipo} actualizado correctamente`);
+            // Actualizar estado local si es necesario, aunque el renderizado posterior lo hará
+        } else {
+            throw new Error(response.message || 'Error al guardar el orden');
+        }
+    } catch (error) {
+        console.error('Error al guardar orden:', error);
+        alert(`No se pudo guardar el nuevo orden: ${error.message}`);
+    } finally {
+        ocultarBloqueoOperacion();
+    }
+}
+
+/**
+ * Inicializa SortableJS para la tabla de clientes
+ */
+function inicializarSortableClientes() {
+    const el = document.querySelector('#clientes-tabla-container tbody');
+    if (!el) return;
+
+    Sortable.create(el, {
+        handle: '.drag-handle',
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        dragClass: 'sortable-drag',
+        onEnd: async function (evt) {
+            if (evt.oldIndex === evt.newIndex) return;
+
+            const rows = Array.from(el.querySelectorAll('tr.cliente-row'));
+            const newOrder = rows.map((row, index) => ({
+                id: row.getAttribute('data-cliente-id'),
+                order: index + 1
+            }));
+
+            // Actualizar appState localmente para evitar saltos visuales si se redibuja
+            newOrder.forEach(item => {
+                const cliente = appState.clientes.find(c => c.ID_Cliente == item.id);
+                if (cliente) cliente.Orden = item.order;
+            });
+
+            await guardarNuevoOrden('Clientes', newOrder);
+        }
+    });
+}
+
+/**
+ * Inicializa SortableJS para las marcas de un cliente
+ * @param {string} idCliente 
+ */
+function inicializarSortableMarcas(idCliente) {
+    const el = document.querySelector(`#marcas-${idCliente} .marcas-lista`);
+    if (!el) return;
+
+    Sortable.create(el, {
+        handle: '.drag-handle',
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        onEnd: async function (evt) {
+            if (evt.oldIndex === evt.newIndex) return;
+
+            const items = Array.from(el.querySelectorAll('.marca-item-container'));
+            const newOrder = items.map((item, index) => {
+                const marcaInfo = item.querySelector('.marca-item');
+                return {
+                    id: marcaInfo.getAttribute('data-marca-id'),
+                    order: index + 1
+                };
+            });
+
+            // Actualizar appState
+            newOrder.forEach(item => {
+                const marca = appState.marcas.find(m => m.ID_Marca == item.id);
+                if (marca) marca.Orden = item.order;
+            });
+
+            await guardarNuevoOrden('Marcas', newOrder);
+        }
+    });
+}
+
+/**
+ * Inicializa SortableJS para los entregables de una marca (en todos sus subgrupos)
+ * @param {string} idMarca 
+ */
+function inicializarSortableEntregables(idMarca) {
+    const contenedor = document.getElementById(`entregables-${idMarca}`);
+    if (!contenedor) return;
+
+    const listas = contenedor.querySelectorAll('.entregables-lista');
+    listas.forEach(el => {
+        Sortable.create(el, {
+            handle: '.drag-handle',
+            draggable: '.entregable-item',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            onEnd: async function (evt) {
+                if (evt.oldIndex === evt.newIndex) return;
+
+                // Capturar el nuevo orden relativo de TODO el contenedor de la marca
+                // para asegurar consistencia si hay múltiples grupos
+                const allItems = Array.from(contenedor.querySelectorAll('.entregable-item'));
+                const newOrder = allItems.map((item, index) => ({
+                    id: item.getAttribute('data-entregable-id'),
+                    order: index + 1
+                }));
+
+                // Actualizar appState
+                newOrder.forEach(item => {
+                    const entregable = appState.entregables.find(e => e.ID_Entregable == item.id);
+                    if (entregable) entregable.Orden = item.order;
+                });
+
+                await guardarNuevoOrden('Entregables', newOrder);
+            }
+        });
+    });
+}
+
+/**
+ * Inicializa SortableJS para los tipos de entregable en el panel de administración
+ */
+function inicializarSortableTiposEntregable() {
+    const el = document.querySelector('#tipos-tabla-container tbody');
+    if (!el) return;
+
+    Sortable.create(el, {
+        handle: '.drag-handle',
+        draggable: '.tipo-row',
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        onEnd: async function (evt) {
+            if (evt.oldIndex === evt.newIndex) return;
+
+            const items = Array.from(el.querySelectorAll('.tipo-row'));
+            const newOrder = items.map((item, index) => ({
+                id: item.getAttribute('data-tipo-id'),
+                order: index + 1
+            }));
+
+            // Actualizar appState
+            newOrder.forEach(item => {
+                const tipo = appState.tiposEntregable.find(t => t.ID_Tipo == item.id);
+                if (tipo) tipo.Orden = item.order;
+            });
+
+            await guardarNuevoOrden('Tipos_Entregable', newOrder);
+        }
+    });
 }

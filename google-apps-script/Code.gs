@@ -1,74 +1,107 @@
 // ========================================
-// GOOGLE APPS SCRIPT - API GENÉRICA
+// GOOGLE APPS SCRIPT - SIN CORS (USA REDIRECT)
+// Version Reconciliada con Reordenamiento
 // ========================================
 
 const SHEET_ID = '1uTMjJ_4_uXfZ2u0P9CTMy4pzMBY60e0tzWkM6xnglTk';
 
 function doGet(e) {
+  const callback = e.parameter.callback;
+  const action = e.parameter.action;
+  const sheetName = e.parameter.sheetName;
+
   try {
-    const action = e.parameter.action;
-    const sheetName = e.parameter.sheetName;
+    let result;
 
-    // Si se solicita leer datos de una hoja
     if (action === 'read' && sheetName) {
-      const ss = SpreadsheetApp.openById(SHEET_ID);
-      const sheet = ss.getSheetByName(sheetName);
+      const startTime = new Date().getTime();
 
-      if (!sheet) {
-        return ContentService.createTextOutput(JSON.stringify({
-          status: 'error',
-          message: 'Hoja no encontrada: ' + sheetName
-        }))
-        .setMimeType(ContentService.MimeType.JSON)
-        .setHeader('Access-Control-Allow-Origin', '*');
+      // Usar cache de 60 segundos para acelerar
+      const cache = CacheService.getScriptCache();
+      const cacheKey = 'sheet_' + sheetName;
+      const cached = cache.get(cacheKey);
+
+      if (cached) {
+        result = JSON.parse(cached);
+        result.fromCache = true;
+      } else {
+        const ss = SpreadsheetApp.openById(SHEET_ID);
+        const sheet = ss.getSheetByName(sheetName);
+
+        if (!sheet) {
+          result = {
+            status: 'error',
+            message: 'Hoja no encontrada: ' + sheetName
+          };
+        } else {
+          // Optimización: Solo leer hasta la última fila con datos
+          const lastRow = sheet.getLastRow();
+          const lastCol = sheet.getLastColumn();
+
+          let data;
+          if (lastRow === 0 || lastCol === 0) {
+            data = [];
+          } else {
+            data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+          }
+
+          result = {
+            status: 'success',
+            data: data,
+            rows: lastRow,
+            cols: lastCol
+          };
+
+          // Cachear por 60 segundos
+          cache.put(cacheKey, JSON.stringify(result), 60);
+        }
       }
 
-      const data = sheet.getDataRange().getValues();
+      const endTime = new Date().getTime();
+      result.loadTime = endTime - startTime;
 
-      return ContentService.createTextOutput(JSON.stringify({
+    } else {
+      result = {
         status: 'success',
-        data: data
-      }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setHeader('Access-Control-Allow-Origin', '*');
+        message: 'API funcionando',
+        timestamp: new Date().toISOString()
+      };
     }
 
-    // Respuesta por defecto
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'success',
-      message: 'API funcionando',
-      timestamp: new Date().toISOString()
-    }))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Access-Control-Allow-Origin', '*');
+    // Si hay callback, devolver JSONP
+    if (callback) {
+      return ContentService
+        .createTextOutput(callback + '(' + JSON.stringify(result) + ')')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+
+    // Sino, devolver JSON normal
+    return ContentService
+      .createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({
+    const errorResult = {
       status: 'error',
       message: error.toString()
-    }))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Access-Control-Allow-Origin', '*');
-  }
-}
+    };
 
-/**
- * FUNCIÓN CRÍTICA PARA CORS - Maneja peticiones OPTIONS (preflight)
- * Sin esta función, los POST desde localhost NO funcionarán
- */
-function doOptions() {
-  return ContentService.createTextOutput('')
-    .setMimeType(ContentService.MimeType.TEXT)
-    .setHeader('Access-Control-Allow-Origin', '*')
-    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type')
-    .setHeader('Access-Control-Max-Age', '86400');
+    if (callback) {
+      return ContentService
+        .createTextOutput(callback + '(' + JSON.stringify(errorResult) + ')')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+
+    return ContentService
+      .createTextOutput(JSON.stringify(errorResult))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function doPost(e) {
   try {
     const request = JSON.parse(e.postData.contents);
-    const { action, sheetName, data, rowId, user } = request;
+    const { action, sheetName, data, rowId, user, orderData } = request;
 
     let result;
 
@@ -82,26 +115,28 @@ function doPost(e) {
       case 'delete':
         result = deleteRow(sheetName, rowId, user || 'Web App');
         break;
+      case 'bulkUpdateOrder':
+        // Compatible con el payload que envía app.js {action, sheetName, orderData, user}
+        result = bulkUpdateOrder(sheetName, orderData || data, user || 'Web App');
+        break;
       default:
         throw new Error('Acción no válida');
     }
 
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'success',
-      data: result
-    }))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Access-Control-Allow-Origin', '*')
-    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        status: 'success',
+        data: result
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error',
-      message: error.toString()
-    }))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Access-Control-Allow-Origin', '*');
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        status: 'error',
+        message: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
@@ -115,36 +150,33 @@ function addRow(sheetName, data, user) {
 
   if (!sheet) throw new Error('Hoja no encontrada: ' + sheetName);
 
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const rawHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const headers = rawHeaders.map(h => String(h).trim()); // CRITICAL: Limpiar espacios
   const lastRow = sheet.getLastRow();
   const newId = lastRow > 1 ? parseInt(sheet.getRange(lastRow, 1).getValue()) + 1 : 1;
   const now = new Date().toISOString();
 
-  // DEBUG: Log para ver qué datos llegan
-  Logger.log('Headers: ' + JSON.stringify(headers));
+  // DEBUG: Ver qué datos llegan
+  Logger.log('=== ADD ROW DEBUG ===');
+  Logger.log('Headers originales: ' + JSON.stringify(rawHeaders));
+  Logger.log('Headers limpios: ' + JSON.stringify(headers));
   Logger.log('Data recibida: ' + JSON.stringify(data));
+  Logger.log('User: ' + user);
 
-  // Determinar cuál es la columna de ID principal de esta hoja
-  const primaryIdColumn = headers[0]; // Primera columna es siempre el ID principal (ID_Marca, ID_Cliente, etc.)
+  const primaryIdColumn = headers[0];
 
   const newRow = headers.map(header => {
-    // Solo asignar el newId a la columna de ID PRINCIPAL, no a todas las que empiezan con ID_
     if (header === primaryIdColumn) return newId;
-
-    // Para otros campos ID_ (como ID_Cliente en la tabla Marcas), usar el valor del data
     if (header.startsWith('ID_') && data[header] !== undefined) return data[header];
-
     if (header === 'Fecha_Creacion' || header === 'Ultima_Actualizacion') return now;
     if (header === 'Actualizado_Por') return user;
 
-    // DEBUG: Log cada campo
     const value = data[header] || '';
-    Logger.log('Header: ' + header + ' = ' + value);
-
+    Logger.log('Header "' + header + '" = "' + value + '"');
     return value;
   });
 
-  Logger.log('NewRow: ' + JSON.stringify(newRow));
+  Logger.log('NewRow a insertar: ' + JSON.stringify(newRow));
   sheet.appendRow(newRow);
   logChange(sheetName, 'INSERT', `ID: ${newId}`, user);
 
@@ -157,7 +189,8 @@ function updateRow(sheetName, rowId, data, user) {
 
   if (!sheet) throw new Error('Hoja no encontrada: ' + sheetName);
 
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const rawHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const headers = rawHeaders.map(h => String(h).trim()); // CRITICAL: Limpiar espacios
   const values = sheet.getDataRange().getValues();
 
   for (let i = 1; i < values.length; i++) {
@@ -199,6 +232,45 @@ function deleteRow(sheetName, rowId, user) {
   }
 
   throw new Error('Registro no encontrado');
+}
+
+/**
+ * Actualiza el orden de múltiples registros de una vez
+ */
+function bulkUpdateOrder(sheetName, orderData, user) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) throw new Error('Hoja no encontrada: ' + sheetName);
+
+  const rawHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const headers = rawHeaders.map(h => String(h).trim());
+  const orderColIndex = headers.indexOf('Orden');
+
+  if (orderColIndex === -1) {
+    // Si no existe la columna Orden, la creamos al final
+    sheet.getRange(1, headers.length + 1).setValue('Orden');
+    headers.push('Orden');
+  }
+
+  const finalOrderColIndex = headers.indexOf('Orden') + 1;
+  const dataValues = sheet.getDataRange().getValues();
+
+  // Crear un mapa de ID -> Fila (index + 1) para acceso rápido
+  const idRowMap = {};
+  for (let i = 1; i < dataValues.length; i++) {
+    idRowMap[dataValues[i][0]] = i + 1;
+  }
+
+  // Realizar actualizaciones
+  orderData.forEach(item => {
+    const rowIndex = idRowMap[item.id];
+    if (rowIndex) {
+      sheet.getRange(rowIndex, finalOrderColIndex).setValue(item.order);
+    }
+  });
+
+  logChange(sheetName, 'REORDER', `Reordenados ${orderData.length} items`, user);
+  return { message: 'Orden actualizado correctamente' };
 }
 
 function logChange(tabla, operacion, descripcion, usuario) {

@@ -13,7 +13,7 @@ const CONFIG = {
 
     // URL del Google Apps Script (Web App URL)
     // NOTA: Este valor se reemplaza automáticamente durante el deployment desde GitHub Secrets
-    SCRIPT_URL: '__SCRIPT_URL__',
+    SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyOzVFHt0XUjut7tTDREuTEvpvNmpKpHQxC3liutNAn9tbbhdPOD0eZ-OaWUHz0fsIm/exec',
 
     // Nombres de las hojas (NO CAMBIAR - deben coincidir exactamente con el Google Sheet)
     SHEETS: {
